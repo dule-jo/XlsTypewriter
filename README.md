@@ -134,3 +134,107 @@ worksheet.FreezeColumns() // freeze current column
 using var stream = new MemoryStream();
 workbook.SaveAs(stream);
 ```
+
+## JavaScript
+
+Install dependencies from the repository root with `npm ci --prefix javascript`.
+The [JavaScript package](./javascript) uses ES modules and ExcelJS.
+
+```js
+import { Workbook } from './javascript/index.js';
+
+const workbook = new Workbook();
+const worksheet = workbook.addWorksheet('Sheet1');
+
+worksheet.merge(1, 2);               // A1:B1
+worksheet.print('Inventory');       // A1, then move to B1
+worksheet.newRow();                  // A2
+worksheet.print('Item');             // A2, then move to B2
+worksheet.printAndGoDown('In stock'); // B2, then move to B3
+worksheet.print(true);               // B3, then move to C3
+
+await workbook.saveAs('Example.xlsx');
+const buffer = await workbook.toBuffer();
+```
+
+`getWorksheet(name)` returns `undefined` if the sheet name is missing.
+`toBuffer()` returns a Node.js `Buffer` containing the XLSX file.
+
+Both print methods write to the current cell before moving the cursor. If that
+step goes past the worksheet edge, reposition the cursor before writing again.
+`merge(rows, columns)` merges a range starting at the cursor and keeps the
+top-left cell's value. `newRow(count = 1)` advances by that many rows and returns
+the cursor to column A.
+
+Each worksheet starts at `A1`. Coordinates are one-based and `goTo(column, row)`
+takes the column first.
+
+```js
+worksheet.goToStart();         // A1
+worksheet.skip(2);             // C1
+worksheet.pushPosition();
+worksheet.newRowKeepColumn();  // C2
+worksheet.newRow();            // A3
+worksheet.popPosition();       // C1
+console.log(worksheet.position); // { column: 3, row: 1 }
+```
+
+`goToStart()` returns to `A1`. `goToEnd()` moves to the bottom-right corner of the
+used range or to `A1` on an empty sheet. `purgePositions()` clears the saved
+positions. Calling `popPosition()` with an empty stack throws a `RangeError`.
+
+### Styles and sizing
+
+`getStyle()` returns a copy of the current cell's ExcelJS style.
+`setStyle(style, rows = 1, columns = 1)` replaces the style of each cell
+in the range starting at the cursor.
+
+```js
+worksheet.goTo(1, 2);
+const style = worksheet.getStyle();
+style.font = { ...style.font, bold: true };
+worksheet.setStyle(style, 1, 2);
+
+worksheet.setColumnWidth(24);      // column A, in character units
+worksheet.setRowHeight(20);        // row 2, in points
+
+worksheet.autoFitCurrentColumn();  // column A
+worksheet.autoFitCurrentRow();     // row 2
+worksheet.autoFitColumns();        // all populated columns
+worksheet.autoFitRows();           // all populated rows
+```
+
+AutoFit estimates sizes from cell content and font size and skips merged cells.
+Row fitting accounts for line breaks and uses the current column widths for cells
+with `alignment.wrapText` enabled.
+
+### Print setup and document properties
+
+Use the ExcelJS `pageSetup` and `headerFooter` options on each worksheet.
+Margins are measured in inches. Header and footer strings accept Excel codes
+such as `&L` for left alignment, `&R` for right alignment and `&P` for the page
+number.
+
+```js
+worksheet.pageSetup.orientation = 'landscape';
+worksheet.pageSetup.margins.top = 0.75;
+worksheet.headerFooter.oddHeader = '&LInventory';
+worksheet.headerFooter.oddFooter = '&RPage &P';
+
+workbook.properties.title = 'Inventory';
+workbook.properties.creator = 'Reporting';
+workbook.customProperties.set('Department', 'Operations');
+```
+
+Custom properties accept strings, finite numbers, booleans and `Date` values.
+`saveAs()` also accepts a Node.js writable stream. It ends the stream and waits
+for the write to finish.
+
+```js
+import { createWriteStream } from 'node:fs';
+
+await workbook.saveAs(createWriteStream('Inventory.xlsx'));
+```
+
+Run the JavaScript tests from the repository root with
+`npm test --prefix javascript`.

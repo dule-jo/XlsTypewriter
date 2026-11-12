@@ -1,0 +1,16 @@
+{
+  "name": "xls-typewriter",
+  "version": "0.0.0",
+  "description": "Write Excel worksheets with a typewriter-style cursor.",
+  "license": "MIT",
+  "type": "module",
+  "exports": "./index.js",
+  "files": ["/*.js"],
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "exceljs": "^4.4.0",
+    "jszip": "^3.10.1"
+  }
+}
